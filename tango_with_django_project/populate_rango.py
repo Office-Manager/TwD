@@ -1,7 +1,7 @@
 __author__ = 'shane'
 import os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE','tango_with_django_project.settings')
-
+from random import randint
 import django
 django.setup()
 
@@ -52,7 +52,7 @@ def populate():
             print "- {0} - {1}".format(str(c) , str(p))
 
 def add_page(cat,title,url,views=0):
-    p = Page.objects.get_or_create(category=cat , title=title, url=url ,views=views)[0]
+    p = Page.objects.get_or_create(category=cat , title=title, url=url ,views=randint(1,101))[0]
     return p
 
 def add_cat(name,views,likes):
