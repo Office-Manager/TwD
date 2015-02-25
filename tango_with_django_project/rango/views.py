@@ -71,11 +71,13 @@ def add_page(request, category_name_slug):
     try:
         cat = Category.objects.get(slug=category_name_slug)
         print "test"
+        print cat
     except Category.DoesNotExist:
             cat = None
             print "test2"
 
     if request.method == "POST":
+        print "Method was POST"
         form = PageForm(request.POST)
         if form.is_valid():
             if cat:
@@ -85,11 +87,13 @@ def add_page(request, category_name_slug):
                 page.save()
                 # probably better to use a redicrect here
                 return category(request, category_name_slug)
-            else:
-                print form.errors
         else:
-            form = PageForm()
+            print form.errors
+    else:
+        print "Method was not POST"
+        print cat, category_name_slug
+        form = PageForm()
 
-        context_dict = {"form": form, "category": cat}
+    context_dict = {"form": form, "category": cat, 'category_name_slug': category_name_slug}
 
-        return render(request, "rango/add_page.html", context_dict)
+    return render(request, "rango/add_page.html", context_dict)
