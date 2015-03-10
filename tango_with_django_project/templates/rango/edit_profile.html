@@ -1,0 +1,26 @@
+{% extends 'rango/base.html' %}
+
+{% load staticfiles %}
+
+{% block title %}manage your profile {% endblock %}
+
+{% block body_block %}
+ <div class="page-header">
+<h1>Manage your profile</h1>
+ </div>
+            <h1>Rango says... hello {{ user.username }}!</h1>
+            <h1> {{ user.password }}!</h1>
+<form id="edit_password" method="post" action="{% url 'registration_register' %}">
+    {% csrf_token %}
+    {% for hidden in form.hidden_fields %}
+        {{hidden}}
+    {% endfor %}
+    <br />
+    {%for field in form.visible_fields %}
+
+    <br /> {{ field.name }}
+        {{ field.errors }}
+        {{ field }}
+    {% endfor %}
+</form>
+{% endblock %}

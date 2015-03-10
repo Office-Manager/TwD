@@ -1,14 +1,67 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 # Create your views here.
-from rango.models import Category, Page
-from rango.forms import CategoryForm, PageForm
-from rango.forms import UserForm, UserProfileForm
-from django.contrib.auth import authenticate, login
-from django.http import HttpResponseRedirect, HttpResponse
+from rango.forms import CategoryForm, PageForm, ChangePassword
+from rango.models import Category, Page, User, UserProfile
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import logout
 from datetime import datetime
+
+
+from registration import signals
+from registration.users import UserModel
+from registration.backends.simple.views import RegistrationView
+
+# --- USER RELATED VIEWS ----
+#Trying to Hack a change password form for the user
+
+class MyRegistrationView(RegistrationView):
+    def register(self, request, **cleaned_data):
+        # Create a new User
+        username, email, password = cleaned_data['username'], cleaned_data['email'], cleaned_data['password1']
+        new_user_object = UserModel().objects.create_user(username, email, password)
+
+        # And links that user to a new (empty) UserProfile
+        profile = UserProfile(user=new_user_object)
+        profile.save()
+
+        new_user = authenticate(username=username, password=password)
+        login(request, new_user)
+        signals.user_registered.send(sender=self.__class__,
+                                     user=new_user,
+                                     request=request)
+        return new_user
+
+    def get_success_url(self, request, user):
+        return('/rango/', (), {})
+
+
+@login_required()
+def edit_profile(request):
+    # a HTTP POST?
+    if request.method == "POST":
+        form = ChangePassword(request.POST)
+
+        # have we been provided with a valid form
+        if form.is_valid():
+            # save the new category
+            form.save(commit=True)
+
+            # now call the index() view
+            # the user will be shown the homepage
+            return index(request)
+        else:
+            # supplied form had errors
+            print form.errors
+    else:
+        # if the request was not a post , display the form to enter details
+        form = ChangePassword()
+        #form.fields["Email"].initial = request.email
+    # bad form ( or form details , no form supplied...
+    # Render the form with error messages if any
+    response = render(request, 'rango/edit_profile.html', {"form": form})
+    return response
+
 
 def index(request):
     context_dict = {}
@@ -49,7 +102,6 @@ def index(request):
         request.session['visits'] = visits
     context_dict['visits'] = visits
 
-
     response = render(request,'rango/index.html', context_dict)
 
     return response
@@ -68,7 +120,8 @@ def about(request):
 
 
 def category(request, category_name_slug):
-
+       # Create a context dictionary which we can pass to the template rendering engine
+    context_dict = {}
     try:
         # Can we find a category name slug with the given name?
         # If we can't, the .get() method raises a DoesNotExist exception.
@@ -146,112 +199,7 @@ def add_page(request, category_name_slug):
     return render(request, "rango/add_page.html", context_dict)
 
 
-def register(request):
-    # A boolean value for telling the template whether the registration was successful.
-    # Set to False initially. Code changes value to True when registration succeeds.
-    registered = False
-
-    # if its not a HTTP POST we're interested in processing form data
-    if request.method == "POST":
-        # Attempt to grab imformation from the raw form information
-        # Note that we make use of both UserForm and UserProfileForm
-        user_form = UserForm(data=request.POST)
-        profile_form = UserProfileForm(data=request.POST)
-
-        # If the two forms are valid...
-        if user_form.is_valid() and profile_form.is_valid():
-            # Save the user's form data to the database.
-            user = user_form.save()
-
-            # Now we hash the password with the set_password method
-            # Once hashed, we can update the user object
-            user.set_password(user.password)
-            user.save()
-
-            #now sort out the UserProfile instance.
-            # Since we need to set the user attribute ourselvesm we set commit=False
-            # This delays saving the model until we're ready to avoid integrity problems
-            profile = profile_form.save(commit=False)
-            profile.user = user
-
-            # did the user provide a profile picture ?
-            # if so we need to get it from the input form and put it in the userProfile  model.
-            if 'picture' in request.FILES:
-                profile.picture = request.FILES['picture']
-
-            # now we save the UserProfile model instance
-            profile.save()
-
-            #Update our variable variable to tell the template registration was successful
-            registered = True
-        # Invalid form or forms
-        # print problems to terminal/
-        # THey'll alos need to be shown to user
-        else:
-            print user_form.errors, profile_form.errors
-
-    #Not a http post , so we render our form using two modelform instances
-    # These forms will be blank , ready for user input
-
-    else:
-        user_form = UserForm()
-        profile_form = UserProfileForm()
-
-    # render the template depending on the context
-    return render(request,
-                  'registration/register.html',
-                  {'user_form': user_form, 'profile_form': profile_form, 'registered': registered})
-
-
-def user_login(request):
-
-    # if the request is HTTP POST try to pull out the relevant information.
-    if request.method == "POST":
-        # Gather the username and password provided by the user.
-        # This information is obtained from the login form.
-                # We use request.POST.get('<variable>') as opposed to request.POST['<variable>'],
-                # because the request.POST.get('<variable>') returns None, if the value does not exist,
-                # while the request.POST['<variable>'] will raise key error exception
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-
-        # Use Django's machinery to attempt to see if the username/password
-        # combination is valid - a User object is returned if it is.
-        user = authenticate(username = username , password = password)
-
-        # if we have a user object, the details are correct.
-        # if None , no user with matching credentials was found.
-        if user:
-            # is the account active ? it could have been disabled.
-            if user.is_active:
-                # if the account is valid and active , we can log the user in.
-                # we'll send the user back to the homepage
-                login(request,user)
-                return HttpResponseRedirect("/rango/")
-            else:
-                # an inactive account was used - no logging in!
-                return HttpResponse("youur Rango account is disabled.")
-        else:
-            # bad login details entered , we can't log the user in
-            print "invalid login details : {0} , {1}".format(username, password)
-            return HttpResponse("Invalid login details supplied")
-
-    # The request is not a HTTP post , so display the login form
-    # this scenario would most like be the http GET.
-    else:
-        # No context variables to pass to the template system, hence the
-        # blank disctionary object...
-        return render(request, "registration/login.html", {})
 
 @login_required
 def restricted(request):
     return render(request, "rango/restricted.html", {})
-
-# Use the login_required() decorator to ensure only those logged in can access the view.
-@login_required
-def user_logout(request):
-    # Since we know the user is logged in, we can now just log them out.
-    logout(request)
-
-    # Take the user back to the homepage.
-    return render(request, 'registration/logout.html', {})

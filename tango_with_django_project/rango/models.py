@@ -38,4 +38,3 @@ class UserProfile(models.Model):
     # Override the __unicode() method to return out something meaningful!
     def __unicode__(self):
         return self.user.username
-
