@@ -11,4 +11,6 @@ urlpatterns = patterns('',
     url(r'^category/(?P<category_name_slug>[\w\-]+)/add_page/$', views.add_page, name="add_page"),
     url(r'^restricted/', views.restricted, name='restricted'),
     url(r'^edit_profile/', views.edit_profile, name='edit_profile'),
+    url(r'^search/', views.search, name='search'),
+    url(r'^goto/$', views.search, name='goto'),
 )

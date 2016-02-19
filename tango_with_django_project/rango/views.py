@@ -6,7 +6,8 @@ from rango.models import Category, Page, User, UserProfile
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from datetime import datetime
-
+from rango.bing_search import run_query
+from django.shortcuts import redirect
 
 from registration import signals
 from registration.users import UserModel
@@ -203,3 +204,33 @@ def add_page(request, category_name_slug):
 @login_required
 def restricted(request):
     return render(request, "rango/restricted.html", {})
+
+
+def search(request):
+
+    result_list = []
+
+    if request.method == 'POST':
+        query = request.POST['query'].strip()
+
+        if query:
+            # Run our Bing function to get the results list!
+            result_list = run_query(query)
+
+    return render(request, 'rango/search.html', {'result_list': result_list})
+
+def track_url(request):
+    page_id = None
+    url = '/rango/'
+    if request.method == 'GET':
+        if 'page_id' in request.GET:
+            page_id = request.GET['page_id']
+            try:
+                page = Page.objects.get(id=page_id)
+                page.views = page.views + 1
+                page.save()
+                url = page.url
+            except:
+                pass
+
+    return redirect(url)

@@ -1,3 +1,4 @@
 tango_with_django_project/db.sqlite3
 __pycache__
 *.pyc
+keys.py
